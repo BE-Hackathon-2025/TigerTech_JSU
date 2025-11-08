@@ -1,0 +1,54 @@
+import json
+import os
+import random
+from datetime import datetime, timedelta
+import shutil
+
+BASE_DIR = "/Users/daofficial_cam/Downloads/TigerTech"
+CURRENT = os.path.join(BASE_DIR, "main_status.json")
+PREV = os.path.join(BASE_DIR, "prev_status.json")
+
+def simulate_reading():
+    # make up some realistic-ish numbers
+    ph = round(random.uniform(6.5, 7.8), 2)
+    turbidity = round(random.uniform(0.1, 5.0), 2)
+    lead_ppb = round(random.uniform(2, 12), 1)
+
+    # simple rule to decide good/bad
+    if 6.5 <= ph <= 7.8 and turbidity < 2.5 and lead_ppb < 10:
+        label = "good"
+    else:
+        label = "bad"
+
+    return {
+        "next_date": (datetime.now() + timedelta(days=1)).date().isoformat(),
+        "pred_ph": ph,
+        "pred_turbidity": turbidity,
+        "pred_lead_ppb": lead_ppb,
+        "pred_label": label,
+        "updated_at": datetime.now().strftime("%B %d, %Y, %I:%M %p")
+    }
+
+def main():
+    # 1) save current as previous
+    if os.path.exists(CURRENT):
+        shutil.copy(CURRENT, PREV)
+
+    # 2) make new fake reading
+    reading = simulate_reading()
+
+    # 3) write as if it’s live
+    with open(CURRENT, "w") as f:
+        json.dump(reading, f, indent=4)
+
+    print("[+] simulated water reading saved to main_status.json")
+    print(reading)
+
+if __name__ == "__main__":
+    import time
+
+    print("[+] Starting live water simulation...")
+    while True:
+        main()
+        print("[+] Next update in 5 minutes...\n")
+        time.sleep(300)  # 300 seconds = 5 minutes

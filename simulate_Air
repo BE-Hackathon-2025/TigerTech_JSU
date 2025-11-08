@@ -1,0 +1,54 @@
+import json
+import os
+import random
+from datetime import datetime, timedelta
+import shutil
+import time
+
+BASE_DIR = "/Users/daofficial_cam/Downloads/TigerTech"
+CURRENT = os.path.join(BASE_DIR, "Air_status.json")
+PREV = os.path.join(BASE_DIR, "prev_air_status.json")
+
+def simulate_air_quality():
+    pm25 = round(random.uniform(5, 150), 1)   # PM2.5 concentration
+    pm10 = round(random.uniform(10, 200), 1)  # PM10 concentration
+    aqi = round(random.uniform(30, 200), 1)   # Air Quality Index
+
+    # Determine label based on AQI
+    if aqi <= 50:
+        label = "good"
+    elif aqi <= 100:
+        label = "moderate"
+    else:
+        label = "unhealthy"
+
+    return {
+        "next_date": (datetime.now() + timedelta(days=1)).date().isoformat(),
+        "pred_pm25": pm25,
+        "pred_pm10": pm10,
+        "pred_aqi": aqi,
+        "pred_label": label,
+        "updated_at": datetime.now().strftime("%B %d, %Y, %I:%M %p")
+    }
+
+def main():
+    # save current as previous
+    if os.path.exists(CURRENT):
+        shutil.copy(CURRENT, PREV)
+
+    # generate new fake air data
+    reading = simulate_air_quality()
+
+    # write it as live data
+    with open(CURRENT, "w") as f:
+        json.dump(reading, f, indent=4)
+
+    print("[+] Simulated air quality reading saved to Air_status.json")
+    print(reading)
+
+if __name__ == "__main__":
+    print("[+] Starting live air simulation...")
+    while True:
+        main()
+        print("[+] Next air update in 5 minutes...\n")
+        time.sleep(300)

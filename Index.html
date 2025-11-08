@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jackson Environmental AI - Hazard Alerts</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/supabase.min.js"></script>
+</head>
+<body>
+    <!-- HEADER SECTION: Displays the app title and subtitle -->
+    <header>
+        <h1>Jackson Environmental AI</h1>
+        <h2>Real-Time Community Hazard Alerts</h2>
+    </header>
+
+<!-- Water Quality ALERT BUTTON SECTION: Sends Water Quality alert message (Zapier-connected) -->
+<section class="flood-alert-section" 
+         style="position:absolute; top:0px; right:10px; text-align:right; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+  <button onclick="sendWaterQualityAlert()" 
+          style="background-color:#009966; color:white; border:none; 
+                 border-radius:8px; padding:10px 18px; font-size:16px; 
+                 cursor:pointer;">
+    Simulate Water Quality Text Message
+  </button>
+  <button onclick="sendAirQualityAlert()" 
+          style="background-color:#009966; color:white; border:none; 
+                 border-radius:8px; padding:10px 18px; font-size:16px; 
+                 cursor:pointer;">
+    Simulate Air Quality Text Message
+  </button>
+  <p id="floodMessage" style="margin-top:10px; font-weight:bold; color:#005fa3;"></p>
+</section>
+<!-- End Water Quality Alert Button -->
+
+    <!-- MAIN SECTION: Contains hazard selection, water data, assistant, and alert button -->
+    <main>
+        <!-- CONTROLS SECTION: User selects hazard type and checks status -->
+        <section class="controls">
+            <p>Select Hazard Type</p>
+            
+            <label><input type="radio" name="hazard" value="flood"> Flood</label><br>
+            <label><input type="radio" name="hazard" value="air"> Air Quality</label><br>
+
+            <!-- REGION DISPLAY: Shows current monitored region -->
+            <div style="position:absolute; top:20px; left:20px; text-align:left; background:transparent; padding:8px; border-radius:6px; display:flex; align-items:center; gap:5px; color:white; font-weight:bold; font-size:16px;">
+              <span>Region:</span>
+              <input type="text" value="Jackson, MS" readonly style="background:transparent; border:none; color:inherit; font-weight:inherit; font-size:inherit;">
+            </div>
+
+            <button id="checkAlert">Check Status</button>
+        </section>
+
+        <!-- WATER DISPLAY + ASSISTANT CONTAINER: Expands the bottom half for model info and homeowner assistant -->
+        <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; height:60vh;">
+          <section id="waterDisplay" style="font-size:18px; padding:20px;">
+              <h3>Water Level Status</h3>
+              <div id="waterContent">Waiting for water model...</div>
+          </section>
+          <section id="airDisplay" style="display:none; font-size:18px; padding:20px;">
+            <h3>Air Quality Status</h3>
+            <div id="airContent">Waiting for air model...</div>
+          </section>
+
+          <section id="assistantBox" style="display:none; font-size:18px; padding:20px;">
+              <h3>Assistant</h3>
+              <div id="assistantTips"></div>
+              <div id="assistantChat">
+                  <label for="userQuestion">Ask a question:</label>
+                  <input type="text" id="userQuestion" placeholder="How do I protect my house">
+                  <button id="askBtn">Ask</button>
+                  <div id="assistantReply"></div>
+              </div>
+          </section>
+        </div>
+
+    </main>
+
+    <!-- SCRIPT SECTION: Handles UI logic, AI assistant replies, water data display, and text alerts -->
+    <script src="script.js"></script>
+</body>
+</html>
+
+<script>
+document.getElementById("waterDisplay").style.display = 'none';
+
+document.getElementById("checkAlert").addEventListener("click", async () => {
+  const selected = document.querySelector('input[name="hazard"]:checked');
+  if (!selected) {
+    return;
+  }
+
+  if (selected.value === 'flood') {
+    document.getElementById('waterDisplay').style.display = 'block';
+    document.getElementById('airDisplay').style.display = 'none';
+    document.getElementById('assistantBox').style.display = 'block';
+    await loadWaterStatus();
+    loadTips('water quality');
+  } else if (selected.value === 'air') {
+    document.getElementById('waterDisplay').style.display = 'none';
+    document.getElementById('airDisplay').style.display = 'block';
+    document.getElementById('assistantBox').style.display = 'block';
+    await loadAirStatus();
+    loadTips('air');
+  } else {
+    document.getElementById('waterDisplay').style.display = 'none';
+    document.getElementById('airDisplay').style.display = 'none';
+    document.getElementById('assistantBox').style.display = 'none';
+  }
+});
+
+async function loadWaterStatus() {
+  try {
+    const res = await fetch('main_status.json');
+    if (!res.ok) {
+      document.getElementById('waterContent').innerText = 'No water model status found.';
+      return;
+    }
+    const data = await res.json();
+    const tomorrow = new Date();
+    const nextDay = new Date(tomorrow);
+    nextDay.setDate(tomorrow.getDate() + 1);
+    const formattedNextDay = nextDay.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('waterContent').innerHTML = `
+      <p><strong>Next day:</strong> ${data.next_date ?? formattedNextDay}</p>
+      <p><strong>Predicted water:</strong> ${data.pred_label ?? 'N/A'}</p>
+      <p>pH: ${data.pred_ph ?? 'N/A'} | Turbidity: ${data.pred_turbidity ?? 'N/A'} | Lead: ${data.pred_lead_ppb ?? 'N/A'}</p>
+      <p><small>Updated: ${data.updated_at ?? ''}</small></p>
+    `;
+  } catch (err) {
+    document.getElementById('waterContent').innerText = 'Error loading water status.';
+  }
+}
+
+async function loadAirStatus() {
+  try {
+    const res = await fetch('Air_status.json');
+    if (!res.ok) {
+      document.getElementById('airContent').innerText = 'No air model status found.';
+      return;
+    }
+    const data = await res.json();
+    document.getElementById('airContent').innerHTML = `
+      <p><strong>Next day:</strong> ${data.next_date ?? 'N/A'}</p>
+      <p><strong>Predicted air quality:</strong> ${data.pred_label ?? 'N/A'}</p>
+      <p>PM2.5: ${data.pred_pm25 ?? 'N/A'} | PM10: ${data.pred_pm10 ?? 'N/A'} | AQI: ${data.pred_aqi ?? 'N/A'}</p>
+      <p><small>Updated: ${data.updated_at ?? ''}</small></p>
+    `;
+  } catch (err) {
+    document.getElementById('airContent').innerText = 'Error loading air status.';
+  }
+}
+
+function loadTips(hazard) {
+  const box = document.getElementById('assistantTips');
+  if (hazard === 'water quality') {
+    box.innerHTML = `
+      <p><strong>Flood tips:</strong></p>
+      <ul>
+        <li>Move valuables to higher levels.</li>
+        <li>Avoid driving through standing water.</li>
+        <li>Know how to turn off electricity.</li>
+      </ul>`;
+  } else if (hazard === 'air') {
+    box.innerHTML = `
+      <p><strong>Air Quality Tips:</strong></p>
+      <ul>
+        <li>Stay indoors and keep windows closed when air quality is poor.</li>
+        <li>Use an air purifier or wear an N95 mask outdoors.</li>
+        <li>Check the AQI (Air Quality Index) before outdoor activities.</li>
+        <li>Run your car AC on recirculate to avoid outside air.</li>
+      </ul>`;
+  } else {
+    box.innerHTML = '';
+  }
+}
+
+document.getElementById('askBtn').addEventListener('click', () => {
+  const q = document.getElementById('userQuestion').value.toLowerCase();
+  const replyBox = document.getElementById('assistantReply');
+  let answer = "Here's a general safety tip: keep important documents and electronics off the floor, and have bottled water ready.";
+
+  if (q.includes('protect') || q.includes('house') || q.includes('home')) {
+    answer = "Raise electronics, move furniture up, seal basement/door gaps, and keep sandbags ready if flooding is possible.";
+  } else if (q.includes('water') && q.includes('bad')) {
+    answer = "If water is flagged bad, don't drink it, boil it 1–3 minutes if possible, and use bottled water for cooking and brushing teeth.";
+  } else if (q.includes('flood')) {
+    answer = "Avoid driving through water, keep kids and pets away from flood water, and turn off power if water is entering the home.";
+  } else if (q.includes('air') || q.includes('smoke') || q.includes('breathe')) {
+    answer = "Poor air quality can cause irritation. Stay inside, use HEPA air filters, and wear an N95 mask outdoors if needed.";
+  } else if (q.includes('mask')) {
+    answer = "A good air quality mask like an N95 or KN95 helps filter smoke and dust particles effectively.";
+  } else if (q.includes('window') || q.includes('vent')) {
+    answer = "Keep your windows closed and switch your ventilation or AC to recirculate mode to keep polluted air out.";
+  } else {
+    answer = "Stay updated on air quality alerts from local authorities and take breaks indoors during high pollution days.";
+  }
+
+  replyBox.innerText = answer;
+});
+
+<!-- ✅ ZAPIER FLOOD ALERT SCRIPT (Linked to Existing Button) -->
+function sendWaterQualityAlert() {
+  fetch("https://hooks.zapier.com/hooks/catch/25292856/us09iy8/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "🚨 Water Quality Alert: Heavy rainfall in Jackson. Stay indoors and avoid flooded areas!"
+    })
+  });
+  alert("✅ Water Quality alert sent to users!");
+}
+
+function sendAirQualityAlert() {
+  fetch("https://hooks.zapier.com/hooks/catch/25292856/us09iy8/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "🌫️ Air Quality Alert: Unhealthy air levels detected in Jackson. Limit outdoor activity and keep windows closed."
+    })
+  });
+  alert("✅ Air Quality alert sent to users!");
+}
+</script>
