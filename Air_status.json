@@ -1,8 +1,8 @@
 {
-    "next_date": "2025-11-09",
-    "pred_pm25": 120.7,
-    "pred_pm10": 68.1,
-    "pred_aqi": 167.5,
-    "pred_label": "unhealthy",
-    "updated_at": "November 08, 2025, 08:53 AM"
+    "next_date": "2025-11-07",
+    "pred_pm25": 11.8,
+    "pred_pm10": 18.5,
+    "pred_aqi": 46,
+    "pred_label": "Good",
+    "updated_at": "2025-11-06T23:30:22.421Z"
 }

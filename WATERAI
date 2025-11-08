@@ -1,0 +1,92 @@
+import os
+import pandas as pd
+from datetime import datetime, timedelta
+import json
+
+REF_PATH = "/Users/daofficial_cam/Downloads/TigerTech/WaterData/WaterData"
+
+def load_reference():
+    if not os.path.exists(REF_PATH):
+        print(f"[x] reference file '{REF_PATH}' not found")
+        return None
+
+    # read as plain text
+    with open(REF_PATH, "r") as f:
+        lines = f.read().strip().splitlines()
+
+    if not lines:
+        print("[x] reference file is empty")
+        return None
+
+    rows = []
+    for line in lines:
+        # skip header or any non-numeric line
+        lower = line.lower()
+        if "date" in lower or "ph" in lower or "turbidity" in lower or "lead" in lower:
+            continue
+
+        parts = line.split(",")
+        if len(parts) < 4:
+            continue
+        try:
+            rows.append({
+                "date": parts[0].strip(),
+                "ph": float(parts[1]),
+                "turbidity": float(parts[2]),
+                "lead_ppb": float(parts[3]),
+            })
+        except ValueError:
+            # skip bad lines instead of crashing
+            print(f"[!] Skipping bad line: {line}")
+            continue
+
+    if not rows:
+        print("[x] no valid rows in reference file after skipping headers")
+        return None
+
+    df = pd.DataFrame(rows)
+    print(f"[+] Loaded {len(df)} valid rows from reference file")
+    return df
+
+def simple_predict_next_day(df):
+    # take the last row as the most recent water reading
+    last = df.iloc[-1]
+
+    # super simple “forecast”: assume tomorrow ≈ today
+    next_day = datetime.fromisoformat(last["date"]) + timedelta(days=1)
+    pred = {
+        "date": next_day.date().isoformat(),
+        "ph": last["ph"],
+        "turbidity": last["turbidity"],
+        "lead_ppb": last["lead_ppb"],
+    }
+
+    # decide good/bad using your rule
+    if 6.5 <= pred["ph"] <= 8.5 and pred["turbidity"] <= 5 and pred["lead_ppb"] <= 15:
+        pred["label"] = "good"
+    else:
+        pred["label"] = "bad"
+
+    return pred
+
+def save_status(pred):
+    formatted_time = datetime.now().strftime("%B %d, %Y, %I:%M %p")
+    status = {
+        "next_date": pred["date"],
+        "pred_ph": pred["ph"],
+        "pred_turbidity": pred["turbidity"],
+        "pred_lead_ppb": pred["lead_ppb"],
+        "pred_label": pred["label"],
+        "updated_at": formatted_time
+    }
+    with open("/Users/daofficial_cam/Downloads/TigerTech/main_status.json", "w") as f:
+        json.dump(status, f, indent=4)
+    print("[+] main_status.json updated with next-day prediction at", formatted_time)
+
+if __name__ == "__main__":
+    df = load_reference()
+    if df is not None:
+        pred = simple_predict_next_day(df)
+        print("[+] next day prediction:", pred)
+        save_status(pred)
+        
